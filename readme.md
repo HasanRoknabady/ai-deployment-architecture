@@ -94,7 +94,7 @@ flowchart TB
 سه مؤلفه‌ی Ensemble در Triton:
 `gender_preprocess (Python)` → `gender_model (TensorRT)` → `gender_postprocess (Python)`
 
-```mermaid
+```
 flowchart LR
   API[API Gateway] -->|/predict| ENS[(gender_ensemble)]
   ENS --> PRE[gender_preprocess (Python)]
