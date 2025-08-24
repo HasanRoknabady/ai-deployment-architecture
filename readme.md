@@ -25,7 +25,6 @@
   * [نمونه docker-compose.yml](#نمونه-docker-composeyml)
   * [ساختار مخزن مدل Triton](#ساختار-مخزن-مدل-triton)
   * [نمونه‌های ساده‌ی config.pbtxt](#نمونههای-سادۀ-configpbtxt)
-* [۷) API](#۷-api)
 * [۸) ساختار پوشه‌ها](#۸-ساختار-پوشهها)
 * [۹) بنچمارک و بهینه‌سازی](#۹-بنچمارک-و-بهینهسازی)
 * [۱۰) عیب‌یابی](#۱۰-عیب‌یابی)
@@ -53,7 +52,7 @@
 
 کلاینت تصویر خام را به API (FastAPI) می‌فرستد؛ Triton یک Ensemble شامل سه جزء Preprocess/Model/Postprocess را اجرا کرده و خروجی JSON تحویل می‌دهد.
 
-```mermaid
+```
 flowchart LR
   User[کاربر / کلاینت] -->|HTTP: /predict| API[API Gateway (FastAPI)]
   API -->|gRPC/HTTP| TRITON[NVIDIA Triton Inference Server]
