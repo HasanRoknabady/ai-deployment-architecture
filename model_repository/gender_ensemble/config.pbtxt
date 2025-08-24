@@ -1,0 +1,54 @@
+name: "gender_ensemble"
+platform: "ensemble"
+max_batch_size: 32
+
+input [
+  {
+    name: "RAW_IMAGE"
+    data_type: TYPE_UINT8
+    dims: [ -1 ]
+  }
+]
+
+output [
+  {
+    name: "MAN_PROB"
+    data_type: TYPE_FP32
+    dims: [ 1 ]
+  },
+  {
+    name: "WOMAN_PROB"
+    data_type: TYPE_FP32
+    dims: [ 1 ]
+  },
+  {
+    name: "LABEL"
+    data_type: TYPE_STRING
+    dims: [ 1 ]
+  }
+]
+
+ensemble_scheduling {
+  step [
+    {
+      model_name: "gender_preprocess"
+      model_version: -1
+      input_map  { key: "RAW_IMAGE"    value: "RAW_IMAGE" }
+      output_map { key: "IMAGE_TENSOR" value: "IMAGE_TENSOR" }
+    },
+    {
+      model_name: "gender_model"
+      model_version: -1
+      input_map  { key: "pixel_values" value: "IMAGE_TENSOR" }
+      output_map { key: "logits"       value: "LOGITS" }
+    },
+    {
+      model_name: "gender_postprocess"
+      model_version: -1
+      input_map  { key: "LOGITS"       value: "LOGITS" }
+      output_map { key: "MAN_PROB"     value: "MAN_PROB" }
+      output_map { key: "WOMAN_PROB"   value: "WOMAN_PROB" }
+      output_map { key: "LABEL"        value: "LABEL" }
+    }
+  ]
+}

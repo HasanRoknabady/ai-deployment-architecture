@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>Architecture Design — AI Deployment Architecture Comparator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .diagram-frame{
+      border-radius: 1rem;
+      background:#ffffff;
+      border:1px solid #e5e7eb;
+      overflow:hidden;
+      aspect-ratio:16/9;
+      display:flex; align-items:center; justify-content:center;
+    }
+    .diagram-frame img{max-width:100%; max-height:100%; object-fit:contain; transition:opacity .25s ease;}
+    .badge{font-size:.725rem; padding:.125rem .5rem; border-radius:999px; background:#f3f4f6; color:#374151; white-space:nowrap;}
+    .card { background:#fff; border:1px solid #e5e7eb; border-radius:1rem; box-shadow: 0 1px 2px rgba(0,0,0,0.04); padding:1.25rem; }
+    .dark body { background:#0f172a; color:#e5e7eb; }
+    .dark .card { background:#111827; border-color:#374151; }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-900">
+  <div class="bg-gradient-to-r from-indigo-600 to-fuchsia-600 text-white">
+    <div class="max-w-7xl mx-auto px-4 py-7 space-y-3">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-semibold">Architecture Design</h1>
+          <p class="text-sm opacity-90">Visual comparison of <span class="font-semibold">Baseline</span> vs <span class="font-semibold">Proposed</span> architecture.</p>
+        </div>
+        <a href="/healthz" class="text-xs bg-white/20 px-3 py-1 rounded-lg">health: check</a>
+      </div>
+      <div class="flex gap-2">
+        <a href="/" class="px-3 py-1.5 rounded-lg text-sm hover:bg-white/10">Comparison</a>
+        <a href="/design" class="px-3 py-1.5 rounded-lg text-sm bg-white/20">Architecture Design</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="max-w-7xl mx-auto p-4 space-y-6">
+    <section class="card space-y-4">
+      <div class="flex items-center justify-between">
+        <div class="text-lg font-semibold">Architecture Diagrams</div>
+        <div class="text-sm text-gray-500">Files served from your local paths</div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="space-y-2">
+          <div class="flex items-center gap-2">
+            <div class="font-medium">Baseline Architecture</div>
+            <span class="badge">reference</span>
+          </div>
+          <a href="/diagram/baseline" target="_blank" class="block">
+            <div class="diagram-frame">
+              {% if baseline_exists %}
+                <img src="/diagram/baseline" alt="Baseline diagram" loading="lazy" decoding="async" style="opacity:0" onload="this.style.opacity=1">
+              {% else %}
+                <div class="text-sm text-gray-500 text-center p-4">
+                  Diagram not found on server.<br/>
+                  <code class="text-xs">{{ baseline_path }}</code>
+                </div>
+              {% endif %}
+            </div>
+          </a>
+          <div class="text-xs text-gray-500">Click to open full-size in a new tab.</div>
+        </div>
+
+        <div class="space-y-2">
+          <div class="flex items-center gap-2">
+            <div class="font-medium">Proposed Architecture</div>
+            <span class="badge">current design</span>
+          </div>
+          <a href="/diagram/proposed" target="_blank" class="block">
+            <div class="diagram-frame">
+              {% if proposed_exists %}
+                <img src="/diagram/proposed" alt="Proposed diagram" loading="lazy" decoding="async" style="opacity:0" onload="this.style.opacity=1">
+              {% else %}
+                <div class="text-sm text-gray-500 text-center p-4">
+                  Diagram not found on server.<br/>
+                  <code class="text-xs">{{ proposed_path }}</code>
+                </div>
+              {% endif %}
+            </div>
+          </a>
+          <div class="text-xs text-gray-500">Click to open full-size in a new tab.</div>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

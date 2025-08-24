@@ -1,0 +1,36 @@
+name: "gender_postprocess"
+backend: "python"
+max_batch_size: 32
+
+input [
+  {
+    name: "LOGITS"
+    data_type: TYPE_FP32
+    dims: [ 2 ]
+  }
+]
+
+output [
+  {
+    name: "MAN_PROB"
+    data_type: TYPE_FP32
+    dims: [ 1 ]
+  },
+  {
+    name: "WOMAN_PROB"
+    data_type: TYPE_FP32
+    dims: [ 1 ]
+  },
+  {
+    name: "LABEL"
+    data_type: TYPE_STRING
+    dims: [ 1 ]
+  }
+]
+
+instance_group [
+  {
+    kind: KIND_GPU
+    gpus: [0]
+  }
+]

@@ -1,0 +1,26 @@
+name: "gender_preprocess"
+backend: "python"
+max_batch_size: 32
+
+input [
+  {
+    name: "RAW_IMAGE"
+    data_type: TYPE_UINT8
+    dims: [ -1 ]
+  }
+]
+
+output [
+  {
+    name: "IMAGE_TENSOR"
+    data_type: TYPE_FP32
+    dims: [ 3, 224, 224 ]
+  }
+]
+
+instance_group [
+  {
+    kind: KIND_GPU
+    gpus: [0]
+  }
+]

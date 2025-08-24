@@ -1,0 +1,560 @@
+<!doctype html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="utf-8"/>
+  <title>AI Deployment Architecture Comparator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js only needed for Benchmark (we still load it here for simplicity) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6"></script>
+  <style>
+    :root { --card-h: 260px; }
+    .chart-card { position: relative; height: var(--card-h); }
+    .chart-card canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
+    .btn { @apply inline-flex items-center gap-2 px-4 py-2 rounded-xl text-white transition; }
+    .btn-primary { @apply bg-indigo-600 hover:bg-indigo-700; }
+    .btn-dark { @apply bg-gray-900 hover:bg-black; }
+    .btn-ghost { @apply bg-white text-gray-700 border border-gray-300 hover:bg-gray-50; }
+    .kbd { @apply px-2 py-0.5 rounded border border-gray-300 bg-white text-xs; }
+    .card { @apply bg-white rounded-2xl shadow p-5 border border-gray-200; }
+    .dark body { @apply bg-gray-900 text-gray-100; }
+    .dark .card { @apply bg-gray-800 border-gray-700; }
+    .badge { font-size:.725rem; padding:.125rem .5rem; border-radius:999px; background:#eef2ff; color:#3730a3; white-space:nowrap; }
+    .status-pill { @apply text-xs px-2 py-1 rounded-full border; }
+    .status-ok { @apply bg-green-50 text-green-700 border-green-200; }
+    .status-warn { @apply bg-yellow-50 text-yellow-700 border-yellow-200; }
+    .status-err { @apply bg-red-50 text-red-700 border-red-200; }
+    .dropzone { @apply border-2 border-dashed rounded-xl p-4 text-center bg-white/60 hover:bg-white; }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-900 min-h-full">
+  <!-- Hero -->
+  <div class="bg-gradient-to-r from-indigo-600 to-fuchsia-600 text-white">
+    <div class="max-w-7xl mx-auto px-4 py-7 space-y-3">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <h1 class="text-2xl font-semibold">AI Deployment Architecture Comparator</h1>
+          <p class="text-sm opacity-90">Benchmark <span class="font-semibold">Proposed (Triton)</span> vs <span class="font-semibold">Baseline</span>.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="theme_toggle" class="px-3 py-1 rounded-lg text-xs bg-white/20">toggle theme</button>
+          <a href="/healthz" class="text-xs bg-white/20 px-3 py-1 rounded-lg">health: check</a>
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <a href="/" class="px-3 py-1.5 rounded-lg text-sm bg-white/20">Comparison</a>
+        <a href="/design" class="px-3 py-1.5 rounded-lg text-sm hover:bg-white/10">Architecture Design</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="max-w-7xl mx-auto p-4 space-y-6">
+
+    <!-- Configuration -->
+    <section class="card space-y-4">
+      <div class="flex items-center justify-between">
+        <div class="text-lg font-semibold">Configuration</div>
+        <div class="flex gap-2">
+          <button id="export_predict_json" class="btn-ghost rounded-xl text-sm">Export quick JSON</button>
+          <button id="export_predict_csv" class="btn-ghost rounded-xl text-sm">Export quick CSV</button>
+          <button id="export_bench_json" class="btn-ghost rounded-xl text-sm">Export benchmark JSON</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <!-- Left column -->
+        <div class="space-y-3">
+          <label class="block">
+            <div class="text-sm text-gray-500">Proposed Architecture Endpoint (Triton URL)</div>
+            <div class="flex gap-2">
+              <input id="triton_url" class="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white/70" value="{{ default_triton_url }}">
+              <button id="btn_ping_triton" class="btn-ghost rounded-xl text-sm">ping</button>
+            </div>
+          </label>
+
+          <label class="block">
+            <div class="text-sm text-gray-500">Triton Model Name</div>
+            <input id="model_name" class="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white/70" value="{{ default_model_name }}">
+          </label>
+
+          <label class="block">
+            <div class="text-sm text-gray-500">Triton Input Name</div>
+            <input id="triton_input_name" class="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white/70" value="{{ default_input_name }}">
+          </label>
+
+          <label class="block">
+            <div class="text-sm text-gray-500">Triton Output Names (comma)</div>
+            <input id="triton_outputs" class="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white/70" value="{{ default_outputs }}" placeholder="MAN_PROB,WOMAN_PROB,LABEL">
+          </label>
+
+          <label class="block">
+            <div class="text-sm text-gray-500">Max Triton Batch</div>
+            <input id="max_batch" class="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white/70" type="number" value="{{ default_max_batch }}">
+          </label>
+        </div>
+
+        <!-- Right column -->
+        <div class="space-y-3">
+          <label class="block">
+            <div class="text-sm text-gray-500">Baseline Architecture Endpoint (FastAPI / Torch)</div>
+            <div class="flex gap-2">
+              <input id="base_api_url" class="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white/70" value="{{ default_base_api }}" placeholder="http://host:port/upload/predict_gender">
+              <button id="btn_ping_base" class="btn-ghost rounded-xl text-sm">ping</button>
+            </div>
+          </label>
+
+          <label class="block">
+            <div class="text-sm text-gray-500">Request Timeout (s)</div>
+            <input id="timeout_s" class="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white/70" type="number" value="{{ request_timeout }}">
+          </label>
+
+          <!-- Drag-and-drop uploader -->
+          <div>
+            <div class="text-sm text-gray-500 mb-1">Upload Test Images</div>
+            <div id="dropzone" class="dropzone">
+              <input id="files" type="file" multiple accept="image/*" class="hidden">
+              <div class="text-sm">
+                Drag & drop images here or <button id="file_pick" class="underline">browse</button>
+              </div>
+              <div id="file_count" class="mt-1 text-xs text-gray-500">No files selected</div>
+            </div>
+            <div id="thumbs" class="flex flex-wrap gap-2 mt-2"></div>
+          </div>
+
+          <!-- Button group with neat alignment -->
+          <div class="flex flex-wrap items-center gap-3 mt-1">
+            <button id="btn_predict" class="btn-dark rounded-xl">
+              <svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
+              Run Quick Comparison
+            </button>
+            <button id="btn_benchmark" class="btn-primary rounded-xl">
+              <svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M3 17h4V7H3v10zm7 0h4V3h-4v14zm7 0h4V11h-4v6z"/></svg>
+              Run Load Benchmark
+            </button>
+            <span id="predict_status" class="status-pill status-warn">Idle</span>
+          </div>
+          <pre id="predict_errors" class="hidden bg-red-50 text-red-800 border border-red-200 rounded-xl p-3 text-sm whitespace-pre-wrap"></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- Quick comparison results (no charts here) -->
+    <section class="card space-y-4">
+      <div class="flex items-center justify-between">
+        <div class="text-lg font-semibold">Service Comparison (first 10 outputs)</div>
+        <div id="speedup_badges" class="text-sm"></div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-gray-100 dark:bg-gray-700/50">
+            <tr>
+              <th class="text-left p-2">#</th>
+              <th class="text-left p-2">Image</th>
+              <th class="text-left p-2">Proposed: Dominant</th>
+              <th class="text-left p-2">Proposed: Man</th>
+              <th class="text-left p-2">Proposed: Woman</th>
+              <th class="text-left p-2">Baseline: Dominant</th>
+              <th class="text-left p-2">Baseline: Man</th>
+              <th class="text-left p-2">Baseline: Woman</th>
+            </tr>
+          </thead>
+          <tbody id="pred_table"></tbody>
+        </table>
+      </div>
+
+      <!-- KPI cards only (no time-series charts for quick test) -->
+      <div class="grid grid-cols-1 xl:grid-cols-4 gap-4">
+        <div class="card">
+          <div class="text-xs text-gray-500">Proposed (Triton) batch latency (ms)</div>
+          <div id="kpi_triton_avg" class="text-2xl font-semibold">–</div>
+          <div class="text-xs text-gray-500" id="kpi_triton_p">–</div>
+        </div>
+        <div class="card">
+          <div class="text-xs text-gray-500">Proposed approx per-image latency (ms)</div>
+          <div id="kpi_triton_img_avg" class="text-2xl font-semibold">–</div>
+          <div class="text-xs text-gray-500" id="kpi_triton_img_p">–</div>
+        </div>
+        <div class="card">
+          <div class="text-xs text-gray-500">Baseline per-request latency (ms)</div>
+          <div id="kpi_base_avg" class="text-2xl font-semibold">–</div>
+          <div class="text-xs text-gray-500" id="kpi_base_p">–</div>
+        </div>
+        <div class="card">
+          <div class="text-xs text-gray-500">Errors (Proposed / Baseline)</div>
+          <div id="kpi_err" class="text-2xl font-semibold">–</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Benchmarks (charts stay here) -->
+    <section class="card space-y-4">
+      <div class="flex items-center justify-between">
+        <div class="text-lg font-semibold">Load Test Scenarios</div>
+        <div class="flex gap-2">
+          <button id="btn_preset_small" class="btn-ghost rounded-xl text-sm">Preset: Small</button>
+          <button id="btn_preset_heavy" class="btn-ghost rounded-xl text-sm">Preset: Heavy</button>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="space-y-2">
+          <label class="block">
+            <div class="text-sm text-gray-500">Scenarios JSON</div>
+            <textarea id="scenarios_json" class="w-full px-3 py-2 rounded-xl border border-gray-300 bg-white/70" rows="9">[
+  {"name":"B8x4_256","batch_size":8,"concurrency":4,"total_images":256},
+  {"name":"B16x8_1024","batch_size":16,"concurrency":8,"total_images":1024}
+]</textarea>
+          </label>
+        </div>
+        <div class="space-y-2">
+          <div class="text-sm text-gray-500">Uploaded images are recycled if a scenario needs more than provided.</div>
+          <div id="bench_status" class="status-pill status-warn inline-block">Idle</div>
+        </div>
+      </div>
+
+      <div id="bench_results" class="space-y-6"></div>
+    </section>
+  </div>
+
+  <script>
+    // ---------------- Theme + Settings persistence ----------------
+    (function(){
+      const root = document.documentElement;
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme === 'dark') root.classList.add('dark');
+      document.getElementById('theme_toggle').onclick = () => {
+        root.classList.toggle('dark');
+        localStorage.setItem('theme', root.classList.contains('dark') ? 'dark' : 'light');
+      };
+
+      // Persist important fields to localStorage
+      const persistIds = ['triton_url','model_name','triton_input_name','triton_outputs','max_batch','base_api_url','timeout_s','scenarios_json'];
+      persistIds.forEach(id => {
+        const el = document.getElementById(id);
+        const val = localStorage.getItem('cfg_'+id);
+        if (val !== null) el.value = val;
+        el.addEventListener('change', () => localStorage.setItem('cfg_'+id, el.value));
+      });
+    })();
+
+    // ---------------- Small DOM helpers ----------------
+    const $ = (id) => document.getElementById(id);
+    const fmt2 = (x) => (x === 0 || x) ? Number(x).toFixed(2) : "–";
+    const pcts = (o) => `p50 ${fmt2(o?.p50)} / p90 ${fmt2(o?.p90)} / p95 ${fmt2(o?.p95)} / p99 ${fmt2(o?.p99)}`;
+    const showErr = (t) => { const e=$('predict_errors'); if(!t){e.classList.add('hidden'); e.textContent='';} else {e.classList.remove('hidden'); e.textContent=t;} };
+    const setStatus = (el, kind, text) => { el.className = `status-pill ${kind}`; el.textContent = text; };
+    function disableRunButtons(disabled){
+      $('btn_predict').disabled = disabled; $('btn_benchmark').disabled = disabled;
+      $('btn_predict').style.opacity = disabled ? 0.6 : 1; $('btn_benchmark').style.opacity = disabled ? 0.6 : 1;
+    }
+    function winBadge(txt){ return `<span class="ml-2 text-xs px-2 py-0.5 rounded-full ${txt.includes('faster')?'bg-green-100 text-green-700':'bg-gray-100 text-gray-700'}">${txt}</span>` }
+    function toCSV(rows){
+      const keys = Object.keys(rows[0]||{});
+      const esc = v => `"${String(v??'').replace(/"/g,'""')}"`;
+      return [keys.join(','), ...rows.map(r=>keys.map(k=>esc(r[k])).join(','))].join('\n');
+    }
+    function downloadBlob(filename, blob){
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+      setTimeout(()=>URL.revokeObjectURL(url), 1000);
+    }
+
+    // -------- Drag & drop uploader + previews ----------
+    (function(){
+      const dz = $('dropzone'); const input = $('files'); const pick = $('file_pick');
+      const thumbs = $('thumbs'); const count = $('file_count');
+
+      function updateCount() { count.textContent = input.files.length ? `${input.files.length} files selected` : 'No files selected'; }
+      function clearThumbs(){ thumbs.innerHTML = ''; }
+      function addThumb(file){
+        const img = document.createElement('img');
+        img.className = 'w-16 h-16 object-cover rounded-lg'; img.alt = file.name;
+        img.src = URL.createObjectURL(file);
+        img.onload = ()=> URL.revokeObjectURL(img.src);
+        thumbs.appendChild(img);
+      }
+
+      pick.onclick = (e)=>{ e.preventDefault(); input.click(); };
+      input.onchange = ()=>{ clearThumbs(); [...input.files].slice(0,12).forEach(addThumb); updateCount(); };
+
+      dz.addEventListener('dragover', (e)=>{ e.preventDefault(); dz.classList.add('ring-2','ring-indigo-400'); });
+      dz.addEventListener('dragleave', ()=> dz.classList.remove('ring-2','ring-indigo-400'));
+      dz.addEventListener('drop', (e)=>{
+        e.preventDefault(); dz.classList.remove('ring-2','ring-indigo-400');
+        const files = e.dataTransfer.files;
+        const dt = new DataTransfer();
+        [...input.files].forEach(f=>dt.items.add(f)); [...files].forEach(f=>dt.items.add(f));
+        input.files = dt.files; input.onchange();
+      });
+
+      updateCount();
+    })();
+
+    // ---------------- Globals for export ----------------
+    let _lastQuickJSON = null;
+    let _lastBenchJSON = null;
+
+    // ---------------- Export buttons ----------------
+    $('export_predict_json').onclick = () => {
+      if(!_lastQuickJSON) return alert('Run Quick Comparison first.');
+      downloadBlob('quick_comparison.json', new Blob([JSON.stringify(_lastQuickJSON,null,2)],{type:'application/json'}));
+    };
+    $('export_predict_csv').onclick = () => {
+      if(!_lastQuickJSON) return alert('Run Quick Comparison first.');
+      const rows = (_lastQuickJSON.predictions || []).map(r => ({
+        index: r.index,
+        triton_dominant: r.triton?.dominant ?? '',
+        triton_man: r.triton?.MAN_PROB ?? '',
+        triton_woman: r.triton?.WOMAN_PROB ?? '',
+        baseline_dominant: r.base?.dominant ?? '',
+        baseline_man: r.base?.MAN_PROB ?? '',
+        baseline_woman: r.base?.WOMAN_PROB ?? ''
+      }));
+      downloadBlob('quick_predictions.csv', new Blob([toCSV(rows)],{type:'text/csv'}));
+    };
+    $('export_bench_json').onclick = () => {
+      if(!_lastBenchJSON) return alert('Run Load Benchmark first.');
+      downloadBlob('benchmarks.json', new Blob([JSON.stringify(_lastBenchJSON,null,2)],{type:'application/json'}));
+    };
+
+    // ---------------- Health pings ----------------
+    $('btn_ping_triton').onclick = async () => {
+      const u = $('triton_url').value;
+      const r = await fetch(`/api/health/triton?url=${encodeURIComponent(u)}`);
+      const j = await r.json();
+      alert(j.ok ? `Triton OK • live=${j.live} ready=${j.ready}` : `Triton UNAVAILABLE • ${j.error}`);
+    };
+    $('btn_ping_base').onclick = async () => {
+      const u = $('base_api_url').value;
+      const r = await fetch(`/api/health/baseline?url=${encodeURIComponent(u)}`);
+      const j = await r.json();
+      alert(j.ok ? `Baseline reachable • status=${j.status_code}` : `Baseline UNAVAILABLE • ${j.error}`);
+    };
+
+    // ---------------- Quick Comparison (no plots) ----------------
+    async function runPredict() {
+      const status = $('predict_status');
+      const files = $('files').files; if (!files || files.length===0) return alert('Upload at least one image.');
+      setStatus(status, 'status-warn', 'Running…');
+      disableRunButtons(true);
+      showErr(null);
+
+      const fd = new FormData();
+      for (const f of files) fd.append('files', f);
+      fd.append('triton_url', $('triton_url').value);
+      fd.append('model_name', $('model_name').value);
+      fd.append('triton_input_name', $('triton_input_name').value);
+      fd.append('triton_outputs_csv', $('triton_outputs').value);
+      fd.append('base_api_url', $('base_api_url').value);
+      fd.append('max_batch', $('max_batch').value);
+      fd.append('timeout_s', $('timeout_s').value);
+
+      const res = await fetch('/api/predict', { method: 'POST', body: fd });
+      const j = await res.json().catch(()=>({}));
+      if (!res.ok || j.status!=='ok') {
+        setStatus(status, 'status-err', 'Error');
+        showErr(j.error||'Request failed');
+        disableRunButtons(false);
+        return;
+      }
+      _lastQuickJSON = j;
+      setStatus(status, 'status-ok', 'Done');
+
+      // Speedup badges
+      const s = j.speedups || {};
+      $('speedup_badges').innerHTML =
+        (s.ips ? `<span class="badge">Throughput ×${fmt2(s.ips)}</span>` : '') +
+        (s.qps ? ` <span class="badge">RPS ×${fmt2(s.qps)}</span>` : '') +
+        (s.approx_p50_latency ? ` <span class="badge">Latency p50 ×${fmt2(s.approx_p50_latency)}</span>` : '');
+
+      // Table (first 10)
+      const tbody = $('pred_table'); tbody.innerHTML='';
+      (j.predictions || []).slice(0,10).forEach(row => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="p-2">${row.index}</td>
+          <td class="p-2">${row.img ? `<img src="${row.img}" class="w-16 h-16 object-cover rounded-lg"/>` : ''}</td>
+          <td class="p-2">${row.triton?.dominant ?? '–'}</td>
+          <td class="p-2">${fmt2(row.triton?.MAN_PROB)}</td>
+          <td class="p-2">${fmt2(row.triton?.WOMAN_PROB)}</td>
+          <td class="p-2">${row.base?.dominant ?? '–'}</td>
+          <td class="p-2">${fmt2(row.base?.MAN_PROB)}</td>
+          <td class="p-2">${fmt2(row.base?.WOMAN_PROB)}</td>`;
+        tbody.appendChild(tr);
+      });
+
+      // KPIs only
+      const tlat = j.metrics?.triton?.batch_latency_ms || {};
+      const timg = j.metrics?.triton?.approx_per_image_latency_ms || {};
+      const blat = j.metrics?.base?.per_request_latency_ms || {};
+      $('kpi_triton_avg').innerHTML = `${fmt2(tlat.avg)} ms`;
+      $('kpi_triton_p').textContent = pcts(tlat);
+      $('kpi_triton_img_avg').innerHTML = `${fmt2(timg.avg)} ms`;
+      $('kpi_triton_img_p').textContent = pcts(timg);
+      $('kpi_base_avg').innerHTML = `${fmt2(blat.avg)} ms`;
+      $('kpi_base_p').textContent = pcts(blat);
+      $('kpi_err').textContent = (j.counts?.triton_errors ?? 0) + ' / ' + (j.counts?.base_errors ?? 0);
+
+      disableRunButtons(false);
+    }
+
+    // ---------------- Benchmarks (with plots) ----------------
+    function makeLineChart(ctx, labels, datasets, yTitle){
+      return new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets: datasets.map(d => ({ ...d, fill:false, tension:0.25, pointRadius:0, spanGaps:false })) },
+        options: {
+          maintainAspectRatio: false, responsive: true, animation: false,
+          interaction: { mode:'index', intersect:false },
+          plugins:{ legend:{ position:'bottom' }, tooltip:{ mode:'index', intersect:false }},
+          scales:{ x:{ grid:{ display:false }}, y:{ beginAtZero:true, title:{ display:true, text:yTitle }} }
+        }
+      });
+    }
+
+    function renderBenchmark(j) {
+      const container = $('bench_results'); container.innerHTML='';
+      (j.scenarios || []).forEach(sc => {
+        const card = document.createElement('div'); card.className='card space-y-3';
+
+        const ipsWin = sc.speedups?.ips ? `Throughput: ${fmt2(sc.speedups.ips)}× faster` : '';
+        const qpsWin = sc.speedups?.qps ? `RPS: ${fmt2(sc.speedups.qps)}× faster` : '';
+        const latWin = sc.speedups?.approx_p50_latency ? `Latency p50: ${fmt2(sc.speedups.approx_p50_latency)}× faster` : '';
+        const header = document.createElement('div'); header.className='flex items-center justify-between';
+        header.innerHTML = `<div class="text-lg font-semibold">${sc.name}
+            ${ipsWin ? winBadge(ipsWin) : ''} ${qpsWin ? winBadge(qpsWin) : ''} ${latWin ? winBadge(latWin) : ''}</div>
+          <div class="text-sm text-gray-500">batch=${sc.config.batch_size} • concurrency=${sc.config.concurrency} • total=${sc.config.total_images}</div>`;
+        card.appendChild(header);
+
+        const table = document.createElement('table'); table.className='min-w-full text-sm';
+        table.innerHTML = `<thead class="bg-gray-100 dark:bg-gray-700/50">
+            <tr>
+              <th class="text-left p-2">Architecture</th>
+              <th class="text-left p-2">Avg Lat (ms)</th>
+              <th class="text-left p-2">p50</th>
+              <th class="text-left p-2">p90</th>
+              <th class="text-left p-2">p95</th>
+              <th class="text-left p-2">p99</th>
+              <th class="text-left p-2">Images/s</th>
+              <th class="text-left p-2">RPS</th>
+              <th class="text-left p-2">Errors</th>
+            </tr></thead>
+          <tbody>
+            ${['triton','base'].map(k => `
+              <tr>
+                <td class="p-2 font-medium">${k==='triton'?'Proposed':'Baseline'}</td>
+                <td class="p-2">${fmt2(sc[k].latency_ms.avg)}</td>
+                <td class="p-2">${fmt2(sc[k].latency_ms.p50)}</td>
+                <td class="p-2">${fmt2(sc[k].latency_ms.p90)}</td>
+                <td class="p-2">${fmt2(sc[k].latency_ms.p95)}</td>
+                <td class="p-2">${fmt2(sc[k].latency_ms.p99)}</td>
+                <td class="p-2">${fmt2(sc[k].ips)}</td>
+                <td class="p-2">${fmt2(sc[k].qps)}</td>
+                <td class="p-2">${sc[k].errors}</td>
+              </tr>`).join('')}
+          </tbody>`;
+        card.appendChild(table);
+
+        // Charts for each scenario
+        const wrap = document.createElement('div'); wrap.className='grid grid-cols-1 lg:grid-cols-3 gap-4 mt-2';
+        const c1wrap = document.createElement('div'); c1wrap.className='chart-card card'; const c1 = document.createElement('canvas'); c1wrap.appendChild(c1); wrap.appendChild(c1wrap);
+        const c2wrap = document.createElement('div'); c2wrap.className='chart-card card'; const c2 = document.createElement('canvas'); c2wrap.appendChild(c2); wrap.appendChild(c2wrap);
+        const c3wrap = document.createElement('div'); c3wrap.className='chart-card card'; const c3 = document.createElement('canvas'); c3wrap.appendChild(c3); wrap.appendChild(c3wrap);
+        card.appendChild(wrap); container.appendChild(card);
+
+        const labels = ['avg','p50','p90','p95','p99'];
+        new Chart(c1.getContext('2d'), {
+          type:'bar',
+          data:{labels, datasets:[
+            {label:'Proposed latency (ms)', data: labels.map(l=>sc.triton.latency_ms[l])},
+            {label:'Baseline latency (ms)', data: labels.map(l=>sc.base.latency_ms[l])}
+          ]},
+          options:{
+            maintainAspectRatio:false,
+            plugins:{legend:{position:'bottom'}},
+            scales:{y:{beginAtZero:true, title:{display:true,text:'ms'}}, x:{grid:{display:false}}}
+          }
+        });
+
+        function stable(dicts){
+          const keys = new Set(); dicts.forEach(d=>Object.keys(d||{}).forEach(k=>keys.add(parseInt(k))));
+          const arr = [...keys].sort((a,b)=>a-b);
+          const labels = arr.map(k=>new Date(k*1000).toLocaleTimeString());
+          const map = (d) => arr.map(k => (d[k] ?? null));
+          return {labels, map, arr};
+        }
+
+        const tb = sc.triton.img_buckets, bb = sc.base.img_buckets;
+        const tr = sc.triton.req_buckets, br = sc.base.req_buckets;
+        const k_ips = stable([tb, bb]);
+        const k_qps = stable([tr, br]);
+
+        makeLineChart(c2.getContext('2d'),
+          k_ips.labels,
+          [
+            {label:'Proposed images/s', data:k_ips.map(tb)},
+            {label:'Baseline images/s', data:k_ips.map(bb)}
+          ],
+          'images/sec'
+        );
+
+        makeLineChart(c3.getContext('2d'),
+          k_qps.labels,
+          [
+            {label:'Proposed RPS', data:k_qps.map(tr)},
+            {label:'Baseline RPS', data:k_qps.map(br)}
+          ],
+          'requests/sec'
+        );
+      });
+    }
+
+    async function runBenchmark() {
+      const files = $('files').files; if (!files || files.length===0) return alert('Upload at least one image.');
+      setStatus($('bench_status'), 'status-warn', 'Running…');
+      disableRunButtons(true);
+
+      const cfg = {
+        triton_url: $('triton_url').value,
+        model_name: $('model_name').value,
+        triton_input_name: $('triton_input_name').value,
+        triton_outputs: $('triton_outputs').value.split(',').map(s=>s.trim()).filter(Boolean),
+        base_api_url: $('base_api_url').value,
+        max_batch: parseInt($('max_batch').value),
+        timeout_s: parseFloat($('timeout_s').value),
+        scenarios: JSON.parse($('scenarios_json').value)
+      };
+      const fd = new FormData(); for (const f of files) fd.append('files', f);
+      fd.append('config_json', JSON.stringify(cfg));
+
+      const res = await fetch('/api/benchmark', { method: 'POST', body: fd });
+      const j = await res.json().catch(()=>({}));
+      if (!res.ok || j.status!=='ok') { setStatus($('bench_status'), 'status-err', 'Error'); disableRunButtons(false); return;}
+      _lastBenchJSON = j;
+      setStatus($('bench_status'), 'status-ok', 'Done');
+      renderBenchmark(j);
+      disableRunButtons(false);
+    }
+
+    // Presets for scenarios
+    $('btn_preset_small').onclick = ()=> {
+      $('scenarios_json').value = JSON.stringify([
+        {name:"B8x4_256", batch_size:8, concurrency:4, total_images:256},
+        {name:"B16x8_512", batch_size:16, concurrency:8, total_images:512}
+      ], null, 2);
+      $('scenarios_json').dispatchEvent(new Event('change'));
+    };
+    $('btn_preset_heavy').onclick = ()=> {
+      $('scenarios_json').value = JSON.stringify([
+        {name:"B32x16_4096", batch_size:32, concurrency:16, total_images:4096},
+        {name:"B64x32_8192", batch_size:64, concurrency:32, total_images:8192}
+      ], null, 2);
+      $('scenarios_json').dispatchEvent(new Event('change'));
+    };
+
+    // Wire buttons
+    $('btn_predict').addEventListener('click', runPredict);
+    $('btn_benchmark').addEventListener('click', runBenchmark);
+  </script>
+</body>
+</html>

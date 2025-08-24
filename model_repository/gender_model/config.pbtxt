@@ -1,0 +1,28 @@
+name: "gender_model"
+platform: "onnxruntime_onnx"  # یا "pytorch_libtorch"
+max_batch_size: 32
+
+input [
+  {
+    name: "pixel_values"
+    data_type: TYPE_FP32
+    dims: [ 3, 224, 224 ]
+  }
+]
+
+output [
+  {
+    name: "logits"
+    data_type: TYPE_FP32
+    dims: [ 2 ]
+  }
+]
+
+instance_group [
+  {
+    kind: KIND_GPU
+    gpus: [0]
+    count: 7
+  }
+]
+
