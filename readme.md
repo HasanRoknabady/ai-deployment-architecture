@@ -65,7 +65,7 @@ flowchart LR
 
 دو کانتینر اصلی: `api` و `triton`. مخزن مدل روی کانتینر Triton مونت شده و ارتباط داخلی از طریق شبکه Compose است.
 
-```mermaid
+```
 flowchart TB
   subgraph Client
     BROWSER[App/Browser]
